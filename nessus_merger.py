@@ -5,40 +5,38 @@
 
 import xml.etree.ElementTree as etree
 import shutil, os, sys, getopt
+from argparse import ArgumentParser
+from pathlib import Path
 
 
 def main():
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], "hd:v", ["help", "dir="])
-    except getopt.GetoptError as err:
-        print(str(err))
-        print("nessus_merger.py -d <target_directory>")
-        sys.exit(2)
-    dir = None
-    verbose = False
-    for opt, arg in opts:
-        if opt in ("-h", "--help"):
-            print("nessus_merger.py -d <target_directory>")
-            sys.exit()
-        elif opt in ("-d", "--dir"):
-            dir = arg
-        else:
-            assert False, "unhandled option"
-    print("Searching for .nessus files to merge in directory: ", dir)
+    parser = ArgumentParser(
+        """
+      Used to merge multiple nessus files into one, which'll be placed in the nss_report folder
+      """
+    )
+    parser.add_argument(
+        "directory",
+        type=Path,
+        help="The directory which has all the .nessus files in it",
+    )
+    args = parser.parse_args()
+    dirz = args.direcotry
+    print(f"Searching for .nessus files to merge in directory: {dirz}")
 
     ### Starting important stuff
 
-    firstFileParsed = True
-    for fileName in os.listdir(dir):
-        if ".nessus" in fileName:
-            print("Parsing - " + dir + fileName)
-            if firstFileParsed:
-                mainTree = etree.parse(dir + fileName)
+    first_file_parsed = True
+    for file_name in os.listdir(dirz):
+        if ".nessus" in file_name:
+            print("Parsing - " + dirz + file_name)
+            if first_file_parsed:
+                mainTree = etree.parse(dirz + file_name)
                 report = mainTree.find("Report")
                 report.attrib["name"] = "Merged Report"
-                firstFileParsed = False
+                first_file_parsed = False
             else:
-                tree = etree.parse(dir + fileName)
+                tree = etree.parse(dirz + file_name)
                 for host in tree.findall(".//ReportHost"):
                     existing_host = report.find(
                         ".//ReportHost[@name='" + host.attrib["name"] + "']"
