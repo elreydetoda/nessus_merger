@@ -29,7 +29,7 @@ def main():
     )
     args = parser.parse_args()
     dirz: Path = args.directory
-    output_report = Path("nss_report/report.nessus")
+    output_report = Path(dirz.parent / "nss_report/report.nessus")
     print(f"Searching for .nessus files to merge in directory: {dirz}")
 
     ### Starting important stuff
@@ -58,7 +58,7 @@ def main():
                             pass
                         else:
                             print(
-                                f"adding finding: {item.attrib['port']}:{item.attrib['pluginID']}"
+                                f"adding finding: {item.attrib['port']}:{item.attrib['pluginID']} to host: {current_host.attrib['name']}"
                             )
                             current_host.append(item)
                 else:
@@ -66,6 +66,7 @@ def main():
                     report.append(host)
     print(" => done.")
 
+    output_report.parent.mkdir(exist_ok=True)
     if output_report.exists():
         output_report.unlink()
     main_tree.write(output_report, encoding="utf-8", xml_declaration=True)
