@@ -9,6 +9,13 @@ from argparse import ArgumentParser
 from pathlib import Path
 
 
+def find_elements(main_report: etree.Element, xpath_query: str) -> etree.Element:
+    """
+    searches current outputting report for items
+    """
+    return main_report.find(xpath_query)
+
+
 def main():
     parser = ArgumentParser(
         """
@@ -21,52 +28,47 @@ def main():
         help="The directory which has all the .nessus files in it",
     )
     args = parser.parse_args()
-    dirz = args.direcotry
+    dirz: Path = args.directory
+    output_report = Path("nss_report/report.nessus")
     print(f"Searching for .nessus files to merge in directory: {dirz}")
 
     ### Starting important stuff
 
     first_file_parsed = True
-    for file_name in os.listdir(dirz):
-        if ".nessus" in file_name:
-            print("Parsing - " + dirz + file_name)
-            if first_file_parsed:
-                mainTree = etree.parse(dirz + file_name)
-                report = mainTree.find("Report")
-                report.attrib["name"] = "Merged Report"
-                first_file_parsed = False
-            else:
-                tree = etree.parse(dirz + file_name)
-                for host in tree.findall(".//ReportHost"):
-                    existing_host = report.find(
-                        ".//ReportHost[@name='" + host.attrib["name"] + "']"
-                    )
-                    if not existing_host:
-                        print("adding host: " + host.attrib["name"])
-                        report.append(host)
-                    else:
-                        for item in host.findall("ReportItem"):
-                            if not existing_host.find(
-                                "ReportItem[@port='"
-                                + item.attrib["port"]
-                                + "'][@pluginID='"
-                                + item.attrib["pluginID"]
-                                + "']"
-                            ):
-                                print(
-                                    "adding finding: "
-                                    + item.attrib["port"]
-                                    + ":"
-                                    + item.attrib["pluginID"]
-                                )
-                                existing_host.append(item)
+    for file_name in dirz.glob("*.nessus"):
+        print(f"Parsing - {file_name}")
+        if first_file_parsed:
+            main_tree = etree.parse(file_name)
+            report = main_tree.find("Report")
+            report.attrib["name"] = "Merged Report"
+            first_file_parsed = False
+        else:
+            tree = etree.parse(file_name)
+            for host in tree.findall(".//ReportHost"):
+                current_host = find_elements(
+                    report,
+                    f".//ReportHost[@name='{host.attrib['name']}']",
+                )
+                if current_host:
+                    for item in host.findall("ReportItem"):
+                        if find_elements(
+                            current_host,
+                            f"ReportItem[@port='{item.attrib['port']}'][@pluginID='{item.attrib['pluginID']}']",
+                        ):
+                            pass
+                        else:
+                            print(
+                                f"adding finding: {item.attrib['port']}:{item.attrib['pluginID']}"
+                            )
+                            current_host.append(item)
+                else:
+                    print(f"adding host: {host.attrib['name']}")
+                    report.append(host)
     print(" => done.")
 
-    if "nss_report" in os.listdir("."):
-        shutil.rmtree("nss_report")
-
-    os.mkdir("nss_report")
-    mainTree.write("nss_report/report.nessus", encoding="utf-8", xml_declaration=True)
+    if output_report.exists():
+        output_report.unlink()
+    main_tree.write(output_report, encoding="utf-8", xml_declaration=True)
 
 
 if __name__ == "__main__":
